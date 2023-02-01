@@ -39,14 +39,17 @@ func NetRun(PORT string) {
 
 func HandleConnections(listen net.Listener) {
 	for {
-		if len(clients) == 10 {
-			continue
-		}
 		conn, err := listen.Accept()
 		if err != nil {
 			log.Fatal(err)
 			os.Exit(1)
 		}
+		mutex.Lock()
+		if len(clients) == 10 {
+			fmt.Fprint(conn, "chat is full. Try again later.\n")
+			conn.Close()
+		}
+		mutex.Unlock()
 		go WriteMessage(conn)
 	}
 }
@@ -55,14 +58,16 @@ func WriteMessage(conn net.Conn) {
 	var message string
 	nickname := GetNickname(conn)
 	joinMessage := JoinChat(nickname)
+	mutex.Lock()
 	clients = append(clients, conn)
 	if history != "" {
 		fmt.Fprintln(conn, history[1:])
 	}
 	history += joinMessage
+	mutex.Unlock()
 	defer func() {
 		RemoveClient(conn, nickname)
-		LeftChat(nickname)
+		LeaveChat(nickname)
 	}()
 	for {
 		time := (time.Now())
@@ -72,11 +77,14 @@ func WriteMessage(conn net.Conn) {
 		if err != nil {
 			break
 		}
+		bufString = strings.TrimSpace(bufString)
 		if !IsValidMsg(bufString) {
 			continue
 		}
 		message = fmt.Sprintf("[%v]:%v", nickname, bufString)
+		mutex.Lock()
 		lastClient = conn
+		mutex.Unlock()
 		strchan <- message
 	}
 }
@@ -85,49 +93,19 @@ func SendMessage() {
 	for message := range strchan {
 		time := time.Now()
 		formatedM := fmt.Sprintf("\n[%0.19v]%v", time, message[:len(message)-1])
+		mutex.Lock()
 		for i := range clients {
 			if clients[i] != lastClient {
 				fmt.Fprint(clients[i], formatedM)
 			}
 		}
 		history += formatedM
+		mutex.Unlock()
 	}
-}
-
-func GetNickname(conn net.Conn) string {
-	fmt.Fprint(conn, "Enter nickname: ")
-	bufString, _ := bufio.NewReader(conn).ReadString('\n')
-	for !IsValidName(bufString[:len(bufString)-1]) {
-		fmt.Fprint(conn, "imya huevoe: ")
-		bufString, _ = bufio.NewReader(conn).ReadString('\n')
-	}
-	for !IsUniqueName(bufString[:len(bufString)-1]) {
-		fmt.Fprint(conn, "imya est uzhe: ")
-		bufString, _ = bufio.NewReader(conn).ReadString('\n')
-	}
-	nicknames = append(nicknames, bufString[:len(bufString)-1])
-	return bufString[:len(bufString)-1]
-}
-
-func IsValidName(bufString string) bool {
-	for _, x := range strings.ToLower(bufString) {
-		if x < 'a' || x > 'z' {
-			return false
-		}
-	}
-	return true
-}
-
-func IsUniqueName(bufString string) bool {
-	for i := range nicknames {
-		if nicknames[i] == bufString {
-			return false
-		}
-	}
-	return true
 }
 
 func RemoveClient(conn net.Conn, nickname string) {
+	mutex.Lock()
 	for i, client := range clients {
 		if client == conn {
 			clients = append(clients[:i], clients[i+1:]...)
@@ -140,14 +118,17 @@ func RemoveClient(conn net.Conn, nickname string) {
 			break
 		}
 	}
+	mutex.Unlock()
 }
 
-func LeftChat(nickname string) {
+func LeaveChat(nickname string) {
 	message := fmt.Sprintf("\n%v has left our chat...", nickname)
 	for i := range clients {
 		fmt.Fprint(clients[i], message)
 	}
+	mutex.Lock()
 	history += message
+	mutex.Unlock()
 }
 
 func JoinChat(nickname string) string {
@@ -159,10 +140,13 @@ func JoinChat(nickname string) string {
 }
 
 func IsValidMsg(message string) bool {
+	if message == "" {
+		return false
+	}
 	for _, x := range message {
-		if x >= 32 {
-			return true
+		if x < 32 || x > 126 {
+			return false
 		}
 	}
-	return false
+	return true
 }

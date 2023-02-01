@@ -10,25 +10,27 @@ import (
 func GetNickname(conn net.Conn) string {
 	fmt.Fprint(conn, "Enter nickname: ")
 	bufString, _ := bufio.NewReader(conn).ReadString('\n')
-	for !(len(bufString) <= 21) || len(bufString) == 0 {
-		fmt.Fprint(conn, "Length of name must contain at least 1 character and max 20 letters: ")
-		bufString, _ = bufio.NewReader(conn).ReadString('\n')
-	}
+	CheckLength(&bufString, conn)
 	for !IsValidName(bufString[:len(bufString)-1]) {
-		fmt.Fprint(conn, "Name has not-valid characters. Allowed[a-zA-Z]: ")
+		fmt.Fprint(conn, "Name has not-valid characters. Allowed[0-9a-zA-Z]: ")
 		bufString, _ = bufio.NewReader(conn).ReadString('\n')
+		CheckLength(&bufString, conn)
 	}
 	for !IsUniqueName(bufString[:len(bufString)-1]) {
 		fmt.Fprint(conn, "Name already exists: ")
 		bufString, _ = bufio.NewReader(conn).ReadString('\n')
+		CheckLength(&bufString, conn)
 	}
 	nicknames = append(nicknames, bufString[:len(bufString)-1])
 	return bufString[:len(bufString)-1]
 }
 
 func IsValidName(bufString string) bool {
+	if len(bufString) == 0 {
+		return false
+	}
 	for _, x := range strings.ToLower(bufString) {
-		if x < 'a' || x > 'z' {
+		if (x < 'a' || x > 'z') && (x < '0' || x > '9') {
 			return false
 		}
 	}
@@ -42,4 +44,12 @@ func IsUniqueName(bufString string) bool {
 		}
 	}
 	return true
+}
+
+func CheckLength(bufStringP *string, conn net.Conn) {
+	bufString := *bufStringP
+	for !(len(bufString) <= 21) || len(bufString) == 0 {
+		fmt.Fprint(conn, "Length of name must contain at least 1 character and max 20 letters: ")
+		bufString, _ = bufio.NewReader(conn).ReadString('\n')
+	}
 }
