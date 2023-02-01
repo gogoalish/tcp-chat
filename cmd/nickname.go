@@ -10,12 +10,16 @@ import (
 func GetNickname(conn net.Conn) string {
 	fmt.Fprint(conn, "Enter nickname: ")
 	bufString, _ := bufio.NewReader(conn).ReadString('\n')
+	for !(len(bufString) <= 21) || len(bufString) == 0 {
+		fmt.Fprint(conn, "Length of name must contain at least 1 character and max 20 letters: ")
+		bufString, _ = bufio.NewReader(conn).ReadString('\n')
+	}
 	for !IsValidName(bufString[:len(bufString)-1]) {
-		fmt.Fprint(conn, "imya huevoe: ")
+		fmt.Fprint(conn, "Name has not-valid characters. Allowed[a-zA-Z]: ")
 		bufString, _ = bufio.NewReader(conn).ReadString('\n')
 	}
 	for !IsUniqueName(bufString[:len(bufString)-1]) {
-		fmt.Fprint(conn, "imya est uzhe: ")
+		fmt.Fprint(conn, "Name already exists: ")
 		bufString, _ = bufio.NewReader(conn).ReadString('\n')
 	}
 	nicknames = append(nicknames, bufString[:len(bufString)-1])
