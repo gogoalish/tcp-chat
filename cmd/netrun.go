@@ -18,7 +18,7 @@ const (
 var (
 	PORT       = "8080"
 	clients    = make(map[string]net.Conn)
-	currClient net.Conn
+	currClient string
 	strchan    = make(chan string)
 	history    string
 	mutex      sync.Mutex
@@ -53,49 +53,40 @@ func HandleConnections(listen net.Listener) {
 
 func WriteMessage(conn net.Conn) {
 	PrintLogo(conn)
-	var message string
 	nickname := GetNickname(conn)
-	joinMessage := JoinChat(nickname)
 	mutex.Lock()
-	clients[nickname] = conn
-	if history != "" {
-		fmt.Fprintln(conn, history[1:])
-	}
-	history += joinMessage
+	JoinChat(conn, nickname)
 	mutex.Unlock()
 	for {
-		time := (time.Now())
-		prefix := fmt.Sprintf("[%0.19v][%v]:", time, nickname)
-		fmt.Fprint(conn, prefix)
-		bufString, err := bufio.NewReader(conn).ReadString('\n')
+		PrintPrefix(nickname)
+		message, err := bufio.NewReader(conn).ReadString('\n')
 		if err != nil {
 			break
 		}
-		bufString = strings.TrimSpace(bufString)
-		if !IsValidMsg(bufString) {
+		message = strings.TrimSpace(message)
+		if !IsValidMsg(message) {
 			continue
 		}
-		message = fmt.Sprintf("[%v]:%v", nickname, bufString)
 		mutex.Lock()
-		currClient = conn
+		currClient = nickname
 		mutex.Unlock()
 		strchan <- message
 	}
-	delete(clients, nickname)
+	mutex.Lock()
 	LeaveChat(nickname)
+	mutex.Unlock()
 }
 
 func SendMessage() {
 	for message := range strchan {
-		time := time.Now()
-		formatedM := fmt.Sprintf("\n[%0.19v]%v", time, message[:len(message)-1])
+		message = fmt.Sprintf("[%0.19v][%v]:%v", time.Now(), currClient, message)
 		mutex.Lock()
-		for i := range clients {
-			if clients[i] != currClient {
-				fmt.Fprint(clients[i], formatedM)
+		for name := range clients {
+			if name != currClient {
+				CleanAndPrint(name, message)
 			}
 		}
-		history += formatedM
+		history += "\n" + message
 		mutex.Unlock()
 	}
 }
