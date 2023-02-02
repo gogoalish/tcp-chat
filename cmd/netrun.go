@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -17,10 +16,9 @@ const (
 )
 
 var (
-	nicknames  []string
 	PORT       = "8080"
-	clients    []net.Conn
-	lastClient net.Conn
+	clients    = make(map[string]net.Conn)
+	currClient net.Conn
 	strchan    = make(chan string)
 	history    string
 	mutex      sync.Mutex
@@ -42,7 +40,6 @@ func HandleConnections(listen net.Listener) {
 		conn, err := listen.Accept()
 		if err != nil {
 			log.Fatal(err)
-			os.Exit(1)
 		}
 		mutex.Lock()
 		if len(clients) == 10 {
@@ -55,20 +52,17 @@ func HandleConnections(listen net.Listener) {
 }
 
 func WriteMessage(conn net.Conn) {
+	PrintLogo(conn)
 	var message string
 	nickname := GetNickname(conn)
 	joinMessage := JoinChat(nickname)
 	mutex.Lock()
-	clients = append(clients, conn)
+	clients[nickname] = conn
 	if history != "" {
 		fmt.Fprintln(conn, history[1:])
 	}
 	history += joinMessage
 	mutex.Unlock()
-	defer func() {
-		RemoveClient(conn, nickname)
-		LeaveChat(nickname)
-	}()
 	for {
 		time := (time.Now())
 		prefix := fmt.Sprintf("[%0.19v][%v]:", time, nickname)
@@ -83,10 +77,12 @@ func WriteMessage(conn net.Conn) {
 		}
 		message = fmt.Sprintf("[%v]:%v", nickname, bufString)
 		mutex.Lock()
-		lastClient = conn
+		currClient = conn
 		mutex.Unlock()
 		strchan <- message
 	}
+	delete(clients, nickname)
+	LeaveChat(nickname)
 }
 
 func SendMessage() {
@@ -95,58 +91,11 @@ func SendMessage() {
 		formatedM := fmt.Sprintf("\n[%0.19v]%v", time, message[:len(message)-1])
 		mutex.Lock()
 		for i := range clients {
-			if clients[i] != lastClient {
+			if clients[i] != currClient {
 				fmt.Fprint(clients[i], formatedM)
 			}
 		}
 		history += formatedM
 		mutex.Unlock()
 	}
-}
-
-func RemoveClient(conn net.Conn, nickname string) {
-	mutex.Lock()
-	for i, client := range clients {
-		if client == conn {
-			clients = append(clients[:i], clients[i+1:]...)
-			break
-		}
-	}
-	for i := range nicknames {
-		if nicknames[i] == nickname {
-			nicknames = append(nicknames[:i], nicknames[i+1:]...)
-			break
-		}
-	}
-	mutex.Unlock()
-}
-
-func LeaveChat(nickname string) {
-	message := fmt.Sprintf("\n%v has left our chat...", nickname)
-	for i := range clients {
-		fmt.Fprint(clients[i], message)
-	}
-	mutex.Lock()
-	history += message
-	mutex.Unlock()
-}
-
-func JoinChat(nickname string) string {
-	message := fmt.Sprintf("\n%v has joined our chat...", nickname)
-	for i := range clients {
-		fmt.Fprint(clients[i], message)
-	}
-	return message
-}
-
-func IsValidMsg(message string) bool {
-	if message == "" {
-		return false
-	}
-	for _, x := range message {
-		if x < 32 || x > 126 {
-			return false
-		}
-	}
-	return true
 }

@@ -8,7 +8,6 @@ import (
 )
 
 func GetNickname(conn net.Conn) string {
-	fmt.Fprint(conn, "Enter nickname: ")
 	bufString, _ := bufio.NewReader(conn).ReadString('\n')
 	CheckLength(&bufString, conn)
 	for !IsValidName(bufString[:len(bufString)-1]) {
@@ -21,7 +20,6 @@ func GetNickname(conn net.Conn) string {
 		bufString, _ = bufio.NewReader(conn).ReadString('\n')
 		CheckLength(&bufString, conn)
 	}
-	nicknames = append(nicknames, bufString[:len(bufString)-1])
 	return bufString[:len(bufString)-1]
 }
 
@@ -38,8 +36,8 @@ func IsValidName(bufString string) bool {
 }
 
 func IsUniqueName(bufString string) bool {
-	for i := range nicknames {
-		if nicknames[i] == bufString {
+	for nickname := range clients {
+		if nickname == bufString {
 			return false
 		}
 	}
