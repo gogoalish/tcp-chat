@@ -16,7 +16,7 @@ const (
 )
 
 var (
-	PORT       = "8080"
+	PORT       = "8989"
 	clients    = make(map[string]net.Conn)
 	currClient string
 	strchan    = make(chan string)

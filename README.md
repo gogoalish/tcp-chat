@@ -9,7 +9,7 @@ This project consists on recreating the **NetCat in a Server-Client Architecture
 - run the server by specifying the port
 ```console
 $ go run .
-Listening on the port :8080
+Listening on the port :8989
 $ go run . 2525
 Listening on the port :2525
 $ go run . 2525 localhost
