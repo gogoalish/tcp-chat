@@ -50,4 +50,5 @@ func CheckLength(bufStringP *string, conn net.Conn) {
 		fmt.Fprint(conn, "Length of name must contain at least 1 character and max 20 letters: ")
 		bufString, _ = bufio.NewReader(conn).ReadString('\n')
 	}
+	*bufStringP = bufString
 }
