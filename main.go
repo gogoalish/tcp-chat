@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	PORT := "8080"
+	PORT := "8989"
 	switch true {
 	case len(os.Args) > 2:
 		fmt.Println("[USAGE]: go run . $port")
